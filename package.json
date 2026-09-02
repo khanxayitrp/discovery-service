@@ -17,6 +17,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pg": "^8.23.0",
+    "redis": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^1.1.0"
   },
