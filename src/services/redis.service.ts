@@ -76,6 +76,16 @@ class RedisService {
         }
     }
 
+    async del(key: string): Promise<number> {
+        try {
+            if (!this.isConnected) return 0;
+            return await this.client.del(key);
+        } catch (error: unknown) {
+            console.error('Failed to delete Redis key:', (error as Error).message);
+            throw error;
+        }
+    }
+
     // ลบ Cache ตาม Pattern (สำคัญมากสำหรับการทำ Cache Invalidation)
     async delByPattern(pattern: string): Promise<number> {
         if (!this.isConnected) {

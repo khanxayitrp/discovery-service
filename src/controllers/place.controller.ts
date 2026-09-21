@@ -1,40 +1,117 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { placeService } from '../services/place.service';
+import {
+    NearbyQueryDto,
+    SearchQueryDto,
+    CreateMasterPlaceDto,
+    UpdateMasterPlaceDto,
+} from '../dto/place.dto';
 
 export class PlaceController {
-    async getNearby(req: Request, res: Response) {
+    /**
+     * GET /places/nearby
+     * Public search for places within a radius
+     */
+    async getNearby(req: Request, res: Response, next: NextFunction) {
         try {
-            const lat = parseFloat(req.query.lat as string);
-            const lng = parseFloat(req.query.lng as string);
-            const radius = req.query.radius ? parseInt(req.query.radius as string) : 5000;
+            const query = req.query as unknown as NearbyQueryDto;
+            const result = await placeService.getNearbyPlaces(query);
 
-            if (isNaN(lat) || isNaN(lng)) {
-                return res.status(400).json({ error: 'Valid latitude and longitude are required' });
-            }
-
-            const places = await placeService.getNearbyPlaces(lat, lng, radius);
-            return res.status(200).json({ data: places });
-        } catch (error: any) {
-            console.error('Error in getNearby:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+            return res.status(200).json({
+                status: 'success',
+                data: result.items,
+                meta: {
+                    total: result.total,
+                    page: query.page,
+                    limit: query.limit,
+                },
+            });
+        } catch (error) {
+            next(error);
         }
     }
 
-    async create(req: Request, res: Response) {
+    /**
+     * GET /places/search
+     * Public keyword, category, status & optional geo search
+     */
+    async search(req: Request, res: Response, next: NextFunction) {
         try {
-            const { name, categoryId, lat, lng } = req.body;
-            // ดึงข้อมูล User/Partner จากที่ Gateway ส่งมาใน Request (สมมติว่า Middleware ฝังไว้ใน req.user)
-            const partnerId = (req as any).user?.id || 'SYSTEM'; // Ownership Data[cite: 2]
+            const query = req.query as unknown as SearchQueryDto;
+            const result = await placeService.searchPlaces(query);
 
-            if (!name || !categoryId || lat === undefined || lng === undefined) {
-                return res.status(400).json({ error: 'Missing required fields' });
-            }
+            return res.status(200).json({
+                status: 'success',
+                data: result.items,
+                meta: {
+                    total: result.total,
+                    page: query.page,
+                    limit: query.limit,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 
-            const newPlace = await placeService.createPlace({ name, categoryId, lat, lng, partnerId });
-            return res.status(201).json({ message: 'Place created successfully', data: newPlace });
-        } catch (error: any) {
-            console.error('Error in create place:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+    /**
+     * GET /places/:idOrSlug
+     * Public place detail with full relations (Locations, Hours, Categories, Amenities, Contacts)
+     */
+    async getDetail(req: Request, res: Response, next: NextFunction) {
+        try {
+            const idOrSlug = req.params.idOrSlug as string;
+            const place = await placeService.getPlaceDetail(idOrSlug);
+
+            return res.status(200).json({
+                status: 'success',
+                data: place,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /admin/places
+     * Master Data creation by Admin/System
+     */
+    async createMaster(req: Request, res: Response, next: NextFunction) {
+        try {
+            const dto = req.body as CreateMasterPlaceDto;
+            const creatorUserId = req.user?.id;
+
+            const newPlace = await placeService.createMasterPlace(dto, creatorUserId);
+
+            return res.status(201).json({
+                status: 'success',
+                message: 'Master Place created successfully',
+                data: newPlace,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PATCH /admin/places/:id
+     * Master Data update by Admin/System
+     */
+    async updateMaster(req: Request, res: Response, next: NextFunction) {
+        try {
+            const id = req.params.id as string;
+            const dto = req.body as UpdateMasterPlaceDto;
+            const updaterUserId = req.user?.id;
+
+            const updatedPlace = await placeService.updateMasterPlace(id, dto, updaterUserId);
+
+            return res.status(200).json({
+                status: 'success',
+                message: 'Master Place updated successfully',
+                data: updatedPlace,
+            });
+        } catch (error) {
+            next(error);
         }
     }
 }
